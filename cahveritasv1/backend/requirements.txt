@@ -1,0 +1,2 @@
+# Local development: the same dependencies as the Databricks App
+-r ../requirements.txt

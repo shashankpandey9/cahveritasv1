@@ -1,0 +1,22 @@
+# Excluded from git and from `databricks sync` (which honours this file).
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+frontend/.vite/
+.env
+*.log
+
+# runtime state — created by the app, never deployed
+data/*.duckdb
+data/*.duckdb.wal
+data/volume_inputs/
+kb/*
+!kb/.gitkeep
+
+# inputs are never deployed: only the empty folder skeleton is
+inputs/**
+!inputs/
+!inputs/*/
+!inputs/*/.gitkeep

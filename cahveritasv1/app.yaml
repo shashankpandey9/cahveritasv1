@@ -1,0 +1,85 @@
+# CAH VERITAS — Databricks App runtime spec.
+#
+# As shipped: DuckDB for everything (app state AND the analytics store the
+# UAT SQL runs against) and inputs read from the app's own inputs/ folder,
+# which is deployed empty. Each Databricks integration below is switched on
+# independently by uncommenting its block — see README.md.
+command: ["python", "run_app.py"]
+
+env:
+  - name: VERITAS_RUNTIME
+    value: "databricks"
+
+  # ---- App state: DuckDB (always) -------------------------------------------
+  # The app's disk is ephemeral: state lasts while the app runs. To keep it
+  # across restarts/redeploys, set a Volume folder the app can read/write.
+  - name: VERITAS_DB_PATH
+    value: "data/veritas.duckdb"
+  # - name: VERITAS_STATE_BACKUP_VOLUME
+  #   value: "/Volumes/<catalog>/<schema>/<volume>/veritas_state"
+
+  # ---- Analytics store for UAT SQL: duckdb (default) | databricks ----------
+  - name: VERITAS_SQL_BACKEND
+    value: "duckdb"
+  # Demo mart in DuckDB so Stages 3-4 have tables to query (duckdb backend only)
+  - name: VERITAS_SEED_DEMO_MART
+    value: "0"
+  # To run the UAT SQL on Unity Catalog through a SQL warehouse:
+  #   1. add a "SQL warehouse" resource to the app (key: sql-warehouse,
+  #      permission: Can use), and grant the app's service principal
+  #      USE CATALOG / USE SCHEMA / SELECT on the catalog and schema(s);
+  #   2. switch VERITAS_SQL_BACKEND above to "databricks" and uncomment:
+  # - name: DATABRICKS_SQL_WAREHOUSE_ID
+  #   valueFrom: sql-warehouse
+  # - name: DATABRICKS_CATALOG
+  #   value: "<catalog>"
+  # - name: DATABRICKS_SCHEMA            # one schema, or several comma-separated
+  #   value: "<schema>"
+
+  # ---- Inputs: app folder (default) | Unity Catalog Volume -----------------
+  # Point at the Volume folder that holds brd/ design/ sources/ code/
+  # uat_baseline/. It is mirrored into the app through the Files API at
+  # start-up and at every Phase 0 (incremental), and via "Sync from Volume".
+  # Grant the app's service principal READ VOLUME on it.
+  # - name: VERITAS_INPUTS_VOLUME
+  #   value: "/Volumes/<catalog>/<schema>/<volume>/inputs"
+  # - name: VERITAS_INPUTS_SYNC_ON_START
+  #   value: "1"
+
+  # ---- LLM: Claude through Databricks Model Serving ------------------------
+  # Each tier names a serving endpoint (the model name on the workspace's
+  # Serving page). Add each endpoint to the app as a "Serving endpoint"
+  # resource with permission "Can query", using the resource keys below —
+  # valueFrom then supplies the endpoint name. Calls authenticate as the app's
+  # service principal; no Anthropic key is needed. Without endpoints the app
+  # runs its deterministic heuristic mode.
+  #   fast   — AAOSA routing polls and figure triage (must accept images)
+  #   smart  — requirements, design trace, UAT generation, explanations
+  #   vision — figure transcription (must accept images; defaults to smart)
+  #
+  # cahveritasv1: one endpoint (us-anthropic-claude-sonnet-4-6, app resource
+  # key llm-smart) serves every tier — fast and vision fall back to smart.
+  # Add llm-fast / llm-vision resources and uncomment below to split tiers.
+  - name: VERITAS_LLM_PROVIDER
+    value: "databricks"
+  - name: VERITAS_MODEL_SMART
+    valueFrom: llm-smart
+  # - name: VERITAS_MODEL_FAST
+  #   valueFrom: llm-fast
+  # - name: VERITAS_MODEL_VISION
+  #   valueFrom: llm-vision
+  # Or give the endpoint names directly instead of valueFrom, e.g.:
+  #   - name: VERITAS_MODEL_SMART
+  #     value: "<serving endpoint name>"
+  # (One endpoint for every tier: set only VERITAS_MODEL_SMART, or
+  #  DATABRICKS_SERVING_ENDPOINT.)
+  - name: VERITAS_CONCURRENCY
+    value: "6"
+
+  # ---- Optional: Databricks Vector Search instead of the in-app index -------
+  # - name: VERITAS_VECTOR_SEARCH
+  #   value: "1"
+  # - name: DATABRICKS_VS_ENDPOINT
+  #   value: "<vs-endpoint>"
+  # - name: DATABRICKS_VS_INDEX
+  #   value: "<catalog>.<schema>.corpus_chunks_index"

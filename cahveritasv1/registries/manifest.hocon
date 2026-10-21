@@ -1,0 +1,4 @@
+{
+    # neuro-san manifest: which agent networks to serve
+    "cah_veritas.hocon": true,
+}
